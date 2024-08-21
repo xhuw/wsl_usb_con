@@ -8,7 +8,7 @@ from logging import getLogger
 LOGGER = getLogger(__name__)
 
 def _parse_list_output(output):
-    (header, *content) = output.split("\n")
+    (_, header, *content) = output.split("\n")
     vid_pid_idx = header.find("VID:PID")
     device_idx = header.find("DEVICE")
     state_idx = header.find("STATE")
@@ -22,11 +22,13 @@ def _parse_list_output(output):
                 "DEVICE": row[device_idx:state_idx].strip(),
                 "STATE": row[state_idx:].strip()
             })
+        else:
+            break
     return ret
 
 def list():
     ret = run(
-        "usbipd wsl list".split(),
+        "usbipd list".split(),
         capture_output=True,
         text=True,
         check=True
@@ -65,7 +67,7 @@ class ManageDevice():
         self._dev_name = dev_name
 
         self._logger = LOGGER.getChild(dev_name)
-        self._proc = Popen(f"usbipd wsl attach -ab {dev_name}".split(), text=True, stderr=PIPE, stdout=PIPE)
+        self._proc = Popen(f"usbipd attach --wsl -ab {dev_name}".split(), text=True, stderr=PIPE, stdout=PIPE)
         self._threads = [
             # threading.Thread(target=wait_for_errcode, args=(self._proc, self._queue, self._idx)),
             threading.Thread(target=wait_for_line, args=(self._proc.stderr, self._logger)),
@@ -73,7 +75,7 @@ class ManageDevice():
         ]
         for i in self._threads:
             i.start()
-    
+
     def close(self):
         self._proc.terminate()
         self._proc.wait()
@@ -84,7 +86,7 @@ class ManageDevice():
         for t in self._threads:
             t.join()
         det_ret = run(
-            f"usbipd wsl detach -b {self._dev_name}".split(),
+            f"usbipd detach -b {self._dev_name}".split(),
             capture_output=True,
             text=True
         )
